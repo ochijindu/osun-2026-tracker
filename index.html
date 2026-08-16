@@ -81,6 +81,30 @@
   }
 
   /* ---- Nav ---- */
+  .clock-row{
+    display:flex;align-items:baseline;gap:14px;margin-bottom:18px;position:relative;z-index:1;flex-wrap:wrap;
+  }
+  .clock-label{
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:rgba(251,247,237,0.5);
+  }
+  .clock-val{
+    font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--clay-light);
+  }
+  .conn-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:'Space Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.04em;
+    padding:4px 10px;border-radius:20px;background:rgba(251,247,237,0.08);
+    color:rgba(251,247,237,0.65);cursor:default;
+  }
+  .conn-dot{width:6px;height:6px;border-radius:50%;background:#8a8a8a;}
+  .conn-pill.live .conn-dot{background:#5fbf7a;box-shadow:0 0 6px #5fbf7a;}
+  .conn-pill.live{color:#a8e0b8;}
+  .conn-pill.offline .conn-dot{background:#d97757;}
+  .conn-pill.offline{color:#f0b299;}
+  .conn-pill.checking .conn-dot{animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
   nav.tabs{
     display:flex;gap:4px;
     position:relative;z-index:1;
@@ -155,7 +179,11 @@
   .feed-time{font-family:'Space Mono',monospace;font-size:11px;color:var(--clay);font-weight:700;white-space:nowrap;}
   .pu-name{font-weight:600;font-size:13.5px;color:var(--ink);}
   .pu-code{font-family:'Space Mono',monospace;font-size:11px;color:var(--indigo);margin-top:2px;}
-  .feed-link{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--clay);text-decoration:none;border-bottom:1px solid var(--clay);white-space:nowrap;}
+  .feed-link{
+    appearance:none;background:none;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+    color:var(--clay);border:none;border-bottom:1px solid var(--clay);white-space:nowrap;
+    cursor:pointer;padding:0;
+  }
   .feed-link:hover{opacity:0.65;}
 
   /* ---- Candidates view ---- */
@@ -199,6 +227,43 @@
     font-family:'Space Mono',monospace;font-size:11px;color:var(--indigo);line-height:1.75;
   }
 
+  .stale-note{
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--indigo);
+    opacity:0.65;margin-top:8px;
+  }
+
+  /* ---- Sheet viewer modal ---- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(27,46,75,0.72);
+    display:none;align-items:center;justify-content:center;
+    padding:24px;z-index:100;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal-box{
+    background:var(--white-resist);border-radius:18px;
+    max-width:640px;width:100%;max-height:88vh;
+    overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 20px 60px rgba(27,46,75,0.4);
+  }
+  .modal-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:16px 20px;border-bottom:1px solid var(--line);
+  }
+  .modal-head .t{font-family:'Newsreader',serif;font-weight:600;font-size:16px;color:var(--ink);}
+  .modal-head .code{font-family:'Space Mono',monospace;font-size:11px;color:var(--indigo);margin-top:2px;}
+  .modal-close{
+    appearance:none;border:none;background:var(--cream);
+    width:32px;height:32px;border-radius:50%;
+    font-family:'Space Mono',monospace;font-size:16px;color:var(--ink);
+    cursor:pointer;flex-shrink:0;
+  }
+  .modal-close:hover{background:var(--clay-light);color:var(--white-resist);}
+  .modal-body{
+    overflow:auto;padding:16px;display:flex;align-items:center;justify-content:center;
+    background:var(--cream-2);
+  }
+  .modal-body img{max-width:100%;height:auto;border-radius:8px;display:block;}
+
   @media (max-width:640px){
     .ledger-head{display:none;}
     .ledger-row{grid-template-columns:1fr;gap:6px;padding:16px;}
@@ -217,9 +282,16 @@
     <div class="eyebrow">Osun State · Off-Cycle Governorship Poll</div>
     <h1>Osun Decides, 2026</h1>
     <div class="hero-sub">15 Aug 2026 · 30 local government areas · 3,763 polling units</div>
+    <div class="clock-row">
+      <span class="clock-label">Your local time</span>
+      <span class="clock-val" id="liveClock">—</span>
+      <span class="conn-pill checking" id="connPill"><span class="conn-dot"></span><span id="connText">Connecting…</span></span>
+      <button id="refreshBtn" style="appearance:none;background:rgba(251,247,237,0.08);border:none;color:rgba(251,247,237,0.65);font-family:'Space Mono',monospace;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;">↻ Refresh now</button>
+    </div>
     <nav class="tabs">
       <button class="active" data-view="monitor">Result Upload</button>
       <button data-view="candidates">The Field</button>
+      <button data-view="tally">Provisional Tally</button>
     </nav>
   </div>
 </header>
@@ -247,8 +319,9 @@
       <div class="info-card"><div class="k">Last upload</div><div class="v" id="lastUpload" style="font-size:16px;">—</div></div>
     </div>
 
-    <div class="section-label"><div class="leaf-dot"></div><span>Live upload feed</span><div class="line"></div></div>
+    <div class="section-label"><div class="leaf-dot"></div><span>Recent upload feed</span><div class="line"></div></div>
     <div class="feed" id="feedList"></div>
+    <div class="stale-note">Snapshot as of the timestamp above — not a continuously live poll.</div>
 
   </section>
 
@@ -277,8 +350,44 @@
     <footer>
       Candidate and party data compiled from INEC's official final candidate list and state
       election coverage, current as of polling day. One seat (APGA) reflects INEC's published
-      party slate; the candidate's name was not confirmed in available reporting as of this
-      snapshot.
+    </footer>
+
+  </section>
+
+  <!-- ============ TALLY VIEW ============ -->
+  <section class="view" id="view-tally">
+
+    <div class="notice">
+      <b>Not our data — attributed.</b> This tab republishes figures from
+      <a href="https://osun.mundx.com" target="_blank" rel="noopener" style="color:var(--clay);font-weight:600;">Mundx Analytics</a>,
+      an independent, non-partisan project that OCR-reads every EC8A form published on IReV and sums the
+      candidate votes itself. This app doesn't run that pipeline — these numbers are theirs, shown here for
+      convenience, not verified or computed by this tracker. Only INEC declares official results.
+    </div>
+
+    <div class="stat-panel" style="background:linear-gradient(135deg,#12261f,#1b3a2c);">
+      <div>
+        <div class="pct" id="tallyLeadPct" style="color:var(--leaf);">—</div>
+        <div class="pct-sub" id="tallyLeadSub">provisional lead</div>
+      </div>
+      <div class="bar-block">
+        <div class="bar-track"><div class="bar-fill" id="tallyBarA" style="background:linear-gradient(90deg,#8a4a1a,#c1682e);"></div></div>
+        <div class="bar-labels"><span id="tallyLabelA">—</span><span id="tallyLabelAPC">—</span></div>
+      </div>
+    </div>
+
+    <div class="info-grid" id="tallyPartyGrid" style="margin-bottom:26px;"></div>
+
+    <div class="info-grid" style="margin-bottom:10px;">
+      <div class="info-card"><div class="k">Valid votes counted</div><div class="v" id="tallyValid">—</div></div>
+      <div class="info-card"><div class="k">Forms uploaded</div><div class="v" id="tallyUploaded" style="font-size:20px;">—</div></div>
+      <div class="info-card"><div class="k">Source</div><div class="v" style="font-size:16px;">Mundx Analytics ↗</div></div>
+    </div>
+
+    <footer>
+      Figures as displayed on osun.mundx.com at time of writing. Provisional and machine-read from
+      published result forms — may contain errors; verify against source forms before treating as final.
+      This is not an official INEC declaration.
     </footer>
 
   </section>
@@ -286,7 +395,49 @@
 </main>
 </div>
 
+<div class="modal-backdrop" id="sheetModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="t" id="modalTitle">—</div>
+        <div class="code" id="modalCode">—</div>
+      </div>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <img id="modalImg" src="" alt="Result sheet">
+    </div>
+  </div>
+</div>
+
 <script>
+/* ---- live clock ---- */
+function tickClock(){
+  const el = document.getElementById('liveClock');
+  const now = new Date();
+  el.textContent = now.toLocaleString(undefined, {
+    weekday:'short', month:'short', day:'numeric',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ---- sheet modal ---- */
+const modal = document.getElementById('sheetModal');
+const modalImg = document.getElementById('modalImg');
+const modalTitle = document.getElementById('modalTitle');
+const modalCode = document.getElementById('modalCode');
+function openSheet(name, code, url){
+  modalTitle.textContent = name;
+  modalCode.textContent = 'PU ' + code;
+  modalImg.src = url;
+  modal.classList.add('open');
+}
+document.getElementById('modalClose').addEventListener('click', ()=>modal.classList.remove('open'));
+modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.classList.remove('open'); });
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') modal.classList.remove('open'); });
+
 /* ---- nav ---- */
 document.querySelectorAll('nav.tabs button').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -298,7 +449,7 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
 });
 
 /* ---- monitor data ---- */
-const stats = { uploaded: 3292, expected: 3763, lastUpload: "Aug 15, 2026, 8:48:08 PM" };
+const stats = { uploaded: 3684, expected: 3763, lastUpload: "Aug 15, 2026, 11:24 PM WAT (cross-verified via Mundx Analytics)" };
 const feed = [
   {name:"AJEGUNLE, AJEGUNLE VILLAGE", code:"29/03/11/007", time:"8:48:08 PM", url:"https://inc-s3-cache.incportals.com/cached/express/results/2998/30/602/6895/96198/95efe62f-095f-44a8-bef8-df0b2294200a.jpg"},
   {name:"BAPTIST DAY SCHOOL, MASIFA", code:"29/10/08/010", time:"8:48:07 PM", url:"https://inc-s3-cache.incportals.com/cached/express/results/2998/30/609/6965/662975/a17121a8-544a-49b4-b1e3-b4a1250b5b12.jpg"},
@@ -338,10 +489,52 @@ feed.forEach(item=>{
   row.innerHTML=`
     <div class="feed-time">${item.time}</div>
     <div><div class="pu-name">${item.name}</div><div class="pu-code">PU ${item.code}</div></div>
-    <a class="feed-link" href="${item.url}" target="_blank" rel="noopener">View sheet →</a>
+    <button class="feed-link" type="button">View sheet →</button>
   `;
+  row.querySelector('.feed-link').addEventListener('click', ()=>openSheet(item.name, item.code, item.url));
   feedEl.appendChild(row);
 });
+
+/* ---- tally data (sourced from Mundx Analytics, osun.mundx.com) ---- */
+const tally = {
+  updated: "Aug 15, 2026, 11:24 PM WAT",
+  validVotes: 886256,
+  uploaded: "3,684 / 3,763 (97.9%)",
+  parties: [
+    {code:"A", name:"Accord", votes:453514, pct:51.2, color:"#c1682e"},
+    {code:"APC", name:"All Progressives Congress", votes:394014, pct:44.5, color:"#4a7a4e"},
+    {code:"ADC", name:"African Democratic Congress", votes:17915, pct:2.0, color:"#2c4770"},
+    {code:"AA", name:"Action Alliance", votes:5858, pct:0.7, color:"#a3a3a3"},
+  ],
+  othersVotes: 35827, othersPct: 4.0
+};
+document.getElementById('tallyLeadPct').textContent = (tally.parties[0].pct - tally.parties[1].pct).toFixed(1) + ' pt lead';
+document.getElementById('tallyLeadSub').textContent = tally.parties[0].name + ' (' + tally.parties[0].code + ') over ' + tally.parties[1].name + ' (' + tally.parties[1].code + ') · updated ' + tally.updated;
+document.getElementById('tallyBarA').style.width = tally.parties[0].pct + '%';
+document.getElementById('tallyLabelA').innerHTML = '<b>' + tally.parties[0].code + '</b> ' + tally.parties[0].pct + '%';
+document.getElementById('tallyLabelAPC').innerHTML = '<b>' + tally.parties[1].code + '</b> ' + tally.parties[1].pct + '%';
+document.getElementById('tallyValid').textContent = tally.validVotes.toLocaleString();
+document.getElementById('tallyUploaded').textContent = tally.uploaded;
+
+const tallyGrid = document.getElementById('tallyPartyGrid');
+tally.parties.forEach(p=>{
+  const card = document.createElement('div');
+  card.className = 'info-card';
+  card.innerHTML = `
+    <div class="k">${p.code} · ${p.name}</div>
+    <div class="v">${p.votes.toLocaleString()}</div>
+    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--indigo);opacity:0.7;margin-top:4px;">${p.pct}% of valid votes</div>
+  `;
+  tallyGrid.appendChild(card);
+});
+const othersCard = document.createElement('div');
+othersCard.className = 'info-card';
+othersCard.innerHTML = `
+  <div class="k">Others (10 parties)</div>
+  <div class="v">${tally.othersVotes.toLocaleString()}</div>
+  <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--indigo);opacity:0.7;margin-top:4px;">${tally.othersPct}% of valid votes</div>
+`;
+tallyGrid.appendChild(othersCard);
 
 /* ---- candidates data ---- */
 const candidates = [
